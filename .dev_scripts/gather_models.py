@@ -91,7 +91,7 @@ def get_final_results(log_json_path, epoch, results_lut):
 def get_dataset_name(config):
     # If there are more dataset, add here.
     name_map = dict(
-        HRSCDataset='HRSC 2016', SARDataset='SAR', DOTADataset='DOTA v1.0')
+        HRSCDataset='HRSC 2016', SARDataset='SAR', DOTADataset='DOTA v1.0', DOTADatasetV2='DOTA v2.0')
     cfg = mmcv.Config.fromfile('./configs/' + config)
     return name_map[cfg.dataset_type]
 
