@@ -50,6 +50,12 @@ def add_parser(parser):
         type=str,
         default=None,
         help='annotations dirs, optional')
+    parser.add_argument(
+        '--metadata-dirs',
+        nargs='+',
+        type=str,
+        default=None,
+        help='metadata dirs, optional')
 
     # argument for splitting image
     parser.add_argument(
@@ -102,6 +108,15 @@ def add_parser(parser):
         type=str,
         default='.png',
         help='the extension of saving images')
+    parser.add_argument(
+        '--target-gsd',
+        type=float,
+        default=0.5,
+        help='target gsd for normalizing')
+    parser.add_argument(
+        '--normalize-gsd',
+        action='store_true',
+        help='normalized data according to gsd values')
 
 
 def parse_args():
@@ -120,10 +135,10 @@ def parse_args():
                 continue
             action.default = prior_config[action.dest]
         args = parser.parse_args()
-
     # assert arguments
     assert args.img_dirs is not None, "argument img_dirs can't be None"
     assert args.ann_dirs is None or len(args.ann_dirs) == len(args.img_dirs)
+    assert args.metadata_dirs is None or len(args.metadata_dirs) == len(args.img_dirs)
     assert len(args.sizes) == len(args.gaps)
     assert len(args.sizes) == 1 or len(args.rates) == 1
     assert args.save_ext in ['.png', '.jpg', 'bmp', '.tif']
@@ -275,7 +290,7 @@ def get_window_obj(info, windows, iof_thr):
 
 
 def crop_and_save_img(info, windows, window_anns, img_dir, no_padding,
-                      padding_value, save_dir, anno_dir, img_ext):
+                      padding_value, save_dir, anno_dir, img_ext, normalize_gsd=False, target_gsd=0):
     """
 
     Args:
@@ -293,11 +308,20 @@ def crop_and_save_img(info, windows, window_anns, img_dir, no_padding,
         list[dict]: Information of paths.
     """
     img = cv2.imread(osp.join(img_dir, info['filename']))
+    if normalize_gsd:
+        new_width, new_height, _ = calc_gsds_factor_and_new_im_shape(orig_gsd=info['gsd'], target_gsd=target_gsd,
+                                                          width=img.shape[1], height=img.shape[0])
+        print(f"image id:{info['id']}\n")
+        print((new_width, new_height))
+        try:
+            img = cv2.resize(img, (new_width, new_height))
+        except:
+            return []
     patch_infos = []
     for i in range(windows.shape[0]):
         patch_info = dict()
         for k, v in info.items():
-            if k not in ['id', 'fileanme', 'width', 'height', 'ann']:
+            if k not in ['id', 'fileanme', 'width', 'height', 'ann', 'gsd']:
                 patch_info[k] = v
 
         window = windows[i]
@@ -310,6 +334,7 @@ def crop_and_save_img(info, windows, window_anns, img_dir, no_padding,
         patch_info['ori_id'] = info['id']
 
         ann = window_anns[i]
+
         ann['bboxes'] = translate(ann['bboxes'], -x_start, -y_start)
         patch_info['ann'] = ann
 
@@ -349,10 +374,20 @@ def crop_and_save_img(info, windows, window_anns, img_dir, no_padding,
 
     return patch_infos
 
+def calc_gsds_factor_and_new_im_shape(orig_gsd, target_gsd, width, height):
+    gsds_div = target_gsd / orig_gsd
+    return ceil(width/gsds_div), ceil(height/gsds_div), gsds_div
+
+def normalize_anns_and_size_accord_gsd(info, target_gsd):
+    info['width'], info['height'], gsds_div = calc_gsds_factor_and_new_im_shape(orig_gsd=info['gsd'], target_gsd=target_gsd,
+                                                                      width=info['width'], height=info['height'])
+    info['ann']['bboxes'] = np.ceil(info['ann']['bboxes']/gsds_div).astype(int)
+    return info
+
 
 def single_split(arguments, sizes, gaps, img_rate_thr, iof_thr, no_padding,
                  padding_value, save_dir, anno_dir, img_ext, lock, prog, total,
-                 logger):
+                 logger, normalize_gsd, target_gsd):
     """
 
     Args:
@@ -375,12 +410,16 @@ def single_split(arguments, sizes, gaps, img_rate_thr, iof_thr, no_padding,
         list[dict]: Information of paths.
     """
     info, img_dir = arguments
+    if normalize_gsd:
+        info = normalize_anns_and_size_accord_gsd(info, target_gsd)
     windows = get_sliding_window(info, sizes, gaps, img_rate_thr)
     window_anns = get_window_obj(info, windows, iof_thr)
     patch_infos = crop_and_save_img(info, windows, window_anns, img_dir,
                                     no_padding, padding_value, save_dir,
-                                    anno_dir, img_ext)
-    assert patch_infos
+                                    anno_dir, img_ext, normalize_gsd, target_gsd)
+    if not patch_infos:
+        print(f"Patch {info['id']} with gsd {info['gsd']} and shape {info['width'], info['height']} cannot resize..\n")
+        return []
 
     lock.acquire()
     prog.value += 1
@@ -435,7 +474,7 @@ def translate(bboxes, x, y):
     return translated
 
 
-def load_dota(img_dir, ann_dir=None, nproc=10):
+def load_dota(img_dir, ann_dir=None, metadata_dir=None, nproc=10):
     """Load DOTA dataset.
 
     Args:
@@ -452,7 +491,7 @@ def load_dota(img_dir, ann_dir=None, nproc=10):
 
     print('Starting loading DOTA dataset information.')
     start_time = time.time()
-    _load_func = partial(_load_dota_single, img_dir=img_dir, ann_dir=ann_dir)
+    _load_func = partial(_load_dota_single, img_dir=img_dir, ann_dir=ann_dir, metadata_dir=metadata_dir)
     if nproc > 1:
         pool = Pool(nproc)
         contents = pool.map(_load_func, os.listdir(img_dir))
@@ -467,7 +506,7 @@ def load_dota(img_dir, ann_dir=None, nproc=10):
     return contents
 
 
-def _load_dota_single(imgfile, img_dir, ann_dir):
+def _load_dota_single(imgfile, img_dir, ann_dir, metadata_dir):
     """Load DOTA's single image.
 
     Args:
@@ -485,8 +524,10 @@ def _load_dota_single(imgfile, img_dir, ann_dir):
     imgpath = osp.join(img_dir, imgfile)
     size = Image.open(imgpath).size
     txtfile = None if ann_dir is None else osp.join(ann_dir, img_id + '.txt')
+    metadata_file = None if metadata_dir is None else osp.join(metadata_dir, img_id + '.txt')
     content = _load_dota_txt(txtfile)
-
+    meta_content = _load_dota_txt(metadata_file)
+    content['gsd'] = meta_content['gsd']
     content.update(
         dict(width=size[0], height=size[1], filename=imgfile, id=img_id))
     return content
@@ -551,8 +592,10 @@ def main():
 
     print('Loading original data!!!')
     infos, img_dirs = [], []
-    for img_dir, ann_dir in zip(args.img_dirs, args.ann_dirs):
-        _infos = load_dota(img_dir=img_dir, ann_dir=ann_dir, nproc=args.nproc)
+    for img_dir, ann_dir, metadata_dir in zip(args.img_dirs, args.ann_dirs, args.metadata_dirs):
+        _infos = load_dota(img_dir=img_dir, ann_dir=ann_dir, metadata_dir=metadata_dir, nproc=args.nproc)
+        if args.normalize_gsd:
+            _infos = [info for info in _infos if info['gsd'] is not None]
         _img_dirs = [img_dir for _ in range(len(_infos))]
         infos.extend(_infos)
         img_dirs.extend(_img_dirs)
@@ -574,7 +617,9 @@ def main():
         lock=manager.Lock(),
         prog=manager.Value('i', 0),
         total=len(infos),
-        logger=logger)
+        logger=logger,
+        normalize_gsd=args.normalize_gsd,
+        target_gsd=args.target_gsd)
 
     if args.nproc > 1:
         pool = Pool(args.nproc)
