@@ -2,9 +2,9 @@
 import glob
 import os.path as osp
 from typing import List
-
+import torch
 from mmengine.dataset import BaseDataset
-
+from mmengine.structures import InstanceData
 from mmrotate.registry import DATASETS
 
 
@@ -40,9 +40,15 @@ class DOTADataset(BaseDataset):
     def __init__(self,
                  diff_thr: int = 100,
                  img_suffix: str = 'png',
+                 ood_labels=None,
+                 ignore_ood_labels=False,
+                 extracted_patches_folder=None,
                  **kwargs) -> None:
+        self.extracted_patches_folder = extracted_patches_folder
         self.diff_thr = diff_thr
         self.img_suffix = img_suffix
+        self.ood_labels = ood_labels if ood_labels is not None else []
+        self.ignore_ood_labels = ignore_ood_labels
         super().__init__(**kwargs)
 
     def load_data_list(self) -> List[dict]:
@@ -83,7 +89,13 @@ class DOTADataset(BaseDataset):
                 data_info['file_name'] = img_name
                 data_info['img_path'] = osp.join(self.data_prefix['img_path'],
                                                  img_name)
-
+                if self.extracted_patches_folder:
+                    patches_path = osp.join(self.extracted_patches_folder, img_id + '.pt')
+                    if osp.exists(patches_path):
+                        cache_dict = torch.load(patches_path, map_location=torch.device('cpu'))
+                        predicted_patches = cache_dict['predicted_patches']
+                        preds = InstanceData(predicted_patches=predicted_patches)
+                        data_info["predicted_patches"] = preds
                 instances = []
                 with open(txt_file) as f:
                     s = f.readlines()
@@ -92,6 +104,8 @@ class DOTADataset(BaseDataset):
                         bbox_info = si.split()
                         instance['bbox'] = [float(i) for i in bbox_info[:8]]
                         cls_name = bbox_info[8]
+                        if cls_name in self.ood_labels and self.ignore_ood_labels:
+                            continue
                         instance['bbox_label'] = cls_map[cls_name]
                         difficulty = int(bbox_info[9])
                         if difficulty > self.diff_thr:
@@ -101,7 +115,6 @@ class DOTADataset(BaseDataset):
                         instances.append(instance)
                 data_info['instances'] = instances
                 data_list.append(data_info)
-
             return data_list
 
     def filter_data(self) -> List[dict]:
@@ -184,4 +197,52 @@ class DOTAv2Dataset(DOTADataset):
                     (255, 250, 205), (0, 139, 139), (255, 255, 0),
                     (147, 116, 116), (0, 0, 255), (220, 20, 60), (119, 11, 32),
                     (0, 0, 142)]
+    }
+
+@DATASETS.register_module()
+class DOTAv2DatasetOOD1(DOTADataset):
+    """DOTA-v2.0 dataset for detection.
+
+    Note: ``ann_file`` in DOTAv2Dataset is different from the BaseDataset.
+    In BaseDataset, it is the path of an annotation file. In DOTAv2Dataset,
+    it is the path of a folder containing XML files.
+    """
+
+    METAINFO = {
+        'classes':
+        ('small-vehicle', 'large-vehicle'),
+        # palette is a list of color tuples, which is used for visualization.
+        'palette': [(165, 42, 42), (189, 183, 107)]
+    }
+
+@DATASETS.register_module()
+class DOTAv2DatasetOOD2(DOTADataset):
+    """DOTA-v2.0 dataset for detection.
+
+    Note: ``ann_file`` in DOTAv2Dataset is different from the BaseDataset.
+    In BaseDataset, it is the path of an annotation file. In DOTAv2Dataset,
+    it is the path of a folder containing XML files.
+    """
+
+    METAINFO = {
+        'classes':
+        ('storage-tank', 'swimming-pool'),
+        # palette is a list of color tuples, which is used for visualization.
+        'palette': [(165, 42, 42), (189, 183, 107)]
+    }
+
+@DATASETS.register_module()
+class DOTAv2DatasetOOD3(DOTADataset):
+    """DOTA-v2.0 dataset for detection.
+
+    Note: ``ann_file`` in DOTAv2Dataset is different from the BaseDataset.
+    In BaseDataset, it is the path of an annotation file. In DOTAv2Dataset,
+    it is the path of a folder containing XML files.
+    """
+
+    METAINFO = {
+        'classes':
+        ('plane', 'tennis-court'),
+        # palette is a list of color tuples, which is used for visualization.
+        'palette': [(165, 42, 42), (189, 183, 107)]
     }

@@ -1,4 +1,5 @@
-dataset_type = 'DOTAv2Dataset'
+dataset_type = 'DOTAv2DatasetOOD1'
+runai_run = False
 data_root = '/home/shoval/Documents/Repositories/data/split_ss_dota/'
 backend_args = None
 train_pipeline = [
@@ -33,17 +34,24 @@ test_pipeline = [
                    'scale_factor'))
 ]
 train_dataloader = dict(
-    batch_size=2,
-    num_workers=2,
+    batch_size=1,
+    num_workers=1,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
     batch_sampler=None,
     dataset=dict(
-        type='DOTAv2Dataset',
+        type='DOTAv2DatasetOOD1',
         data_root='/home/shoval/Documents/Repositories/data/split_ss_dota/',
         ann_file='train/labelTxt/',
         data_prefix=dict(img_path='train/images/'),
         filter_cfg=dict(filter_empty_gt=True),
+        ood_labels=[
+            'plane', 'baseball-diamond', 'bridge', 'ground-track-field',
+            'ship', 'tennis-court', 'basketball-court', 'storage-tank',
+            'soccer-ball-field', 'roundabout', 'harbor', 'swimming-pool',
+            'helicopter', 'airport', 'helipad', 'container-crane'
+        ],
+        ignore_ood_labels=True,
         pipeline=[
             dict(type='mmdet.LoadImageFromFile', backend_args=None),
             dict(
@@ -53,23 +61,32 @@ train_dataloader = dict(
                 box_type_mapping=dict(gt_bboxes='rbox')),
             dict(type='mmdet.Resize', scale=(1024, 1024), keep_ratio=True),
             dict(
-                type='mmdet.RandomFlip',
-                prob=0.75,
-                direction=['horizontal', 'vertical', 'diagonal']),
-            dict(type='mmdet.PackDetInputs')
+                type='mmdet.PackDetInputs',
+                meta_keys=('img_id', 'file_name', 'img_path', 'instances',
+                           'sample_idx', 'img', 'img_shape', 'ori_shape',
+                           'gt_bboxes', 'gt_ignore_flags', 'gt_bboxes_labels',
+                           'scale', 'scale_factor', 'keep_ratio',
+                           'homography_matrix'))
         ]))
 val_dataloader = dict(
-    batch_size=1,
+    batch_size=2,
     num_workers=2,
     persistent_workers=True,
     drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
-        type='DOTAv2Dataset',
+        type='DOTAv2DatasetOOD1',
         data_root='/home/shoval/Documents/Repositories/data/split_ss_dota/',
         ann_file='val/labelTxt/',
         data_prefix=dict(img_path='val/images/'),
         test_mode=True,
+        ood_labels=[
+            'plane', 'baseball-diamond', 'bridge', 'ground-track-field',
+            'ship', 'tennis-court', 'basketball-court', 'storage-tank',
+            'soccer-ball-field', 'roundabout', 'harbor', 'swimming-pool',
+            'helicopter', 'airport', 'helipad', 'container-crane'
+        ],
+        ignore_ood_labels=True,
         pipeline=[
             dict(type='mmdet.LoadImageFromFile', backend_args=None),
             dict(
@@ -84,17 +101,24 @@ val_dataloader = dict(
                            'scale_factor'))
         ]))
 test_dataloader = dict(
-    batch_size=1,
-    num_workers=0,
-    persistent_workers=False,
+    batch_size=2,
+    num_workers=2,
+    persistent_workers=True,
     drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
-        type='DOTAv2Dataset',
+        type='DOTAv2DatasetOOD1',
         data_root='/home/shoval/Documents/Repositories/data/split_ss_dota/',
         ann_file='val/labelTxt/',
         data_prefix=dict(img_path='val/images/'),
         test_mode=True,
+        ood_labels=[
+            'plane', 'baseball-diamond', 'bridge', 'ground-track-field',
+            'ship', 'tennis-court', 'basketball-court', 'storage-tank',
+            'soccer-ball-field', 'roundabout', 'harbor', 'swimming-pool',
+            'helicopter', 'airport', 'helipad', 'container-crane'
+        ],
+        ignore_ood_labels=True,
         pipeline=[
             dict(type='mmdet.LoadImageFromFile', backend_args=None),
             dict(
@@ -277,13 +301,15 @@ model = dict(
             debug=False)),
     test_cfg=dict(
         rpn=dict(
-            nms_pre=4000,
-            max_per_img=4000,
+            nms_pre=2000,
+            max_per_img=2000,
             nms=dict(type='nms', iou_threshold=0.8),
             min_bbox_size=0),
         rcnn=dict(
             nms_pre=2000,
             min_bbox_size=0,
-            score_thr=0.001,
+            score_thr=0.05,
             nms=dict(type='nms_rotated', iou_threshold=0.1),
             max_per_img=2000)))
+launcher = 'none'
+work_dir = '/home/shoval/Documents/Repositories/mmrotate/configs/ood_experiments/train/1/'

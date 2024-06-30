@@ -1,21 +1,7 @@
-dataset_type = 'DOTAv2Dataset'
-data_root = './mmrotate/data/split_ss_dota/'
+dataset_type = 'DOTAv2DatasetOOD2'
+runai_run=True
+data_root = '/home/shoval/Documents/Repositories/data/split_ss_dota/' if not runai_run else '/storage/shoval/datasets/split_ss_dota/'
 backend_args = None
-patches_pipeline = [dict(type='mmdet.LoadAnnotations', with_bbox=True, box_type='qbox'),
-                    dict(type='ConvertBoxType', box_type_mapping=dict(gt_bboxes='rbox'), _scope_='mmrotate'),
-                    dict(
-                      type='mmdet.PackDetInputs',
-                      meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                                 'scale_factor'))
-                    ]
-patches_assigner=dict(
-                type='mmdet.MaxIoUAssigner',
-                pos_iou_thr=0.7,
-                neg_iou_thr=0.3,
-                min_pos_iou=0.7,
-                match_low_quality=True,
-                ignore_iof_thr=-1,
-                iou_calculator=dict(type='RBbox2HBboxOverlaps2D', _scope_='mmrotate'))
 train_pipeline = [
     dict(type='mmdet.LoadImageFromFile', backend_args=None),
     dict(type='mmdet.LoadAnnotations', with_bbox=True, box_type='qbox'),
@@ -40,96 +26,114 @@ val_pipeline = [
 test_pipeline = [
     dict(type='mmdet.LoadImageFromFile', backend_args=None),
     dict(type='mmdet.Resize', scale=(1024, 1024), keep_ratio=True),
+    dict(type='mmdet.LoadAnnotations', with_bbox=True, box_type='qbox'),
+    dict(type='ConvertBoxType', box_type_mapping=dict(gt_bboxes='rbox')),
     dict(
         type='mmdet.PackDetInputs',
         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
                    'scale_factor'))
 ]
-
-
-val_dataloader = dict(
-    batch_size=20,
+train_dataloader = dict(
+    batch_size=2,
     num_workers=2,
-    # num_workers=0,
     persistent_workers=True,
-    # persistent_workers=False,
+    sampler=dict(type='DefaultSampler', shuffle=True),
+    batch_sampler=None,
+    dataset=dict(
+        type=dataset_type,
+        data_root=data_root,
+        ann_file='train/labelTxt/',
+        data_prefix=dict(img_path='train/images/'),
+        filter_cfg=dict(filter_empty_gt=True),
+        OOD_labels=[
+             'plane', 'baseball-diamond', 'bridge', 'ground-track-field',
+             'small-vehicle', 'large-vehicle', 'ship', 'tennis-court',
+             'basketball-court', 'soccer-ball-field', 'roundabout',
+             'harbor', 'helicopter', 'container-crane', 'airport',
+             'helipad'
+        ],
+        pipeline=[
+            dict(type='mmdet.LoadImageFromFile', backend_args=None),
+            dict(
+                type='mmdet.LoadAnnotations', with_bbox=True, box_type='qbox'),
+            dict(
+                type='ConvertBoxType',
+                box_type_mapping=dict(gt_bboxes='rbox')),
+            dict(type='mmdet.Resize', scale=(1024, 1024), keep_ratio=True),
+            dict(
+                type='mmdet.PackDetInputs',
+                meta_keys=('img_id', 'file_name', 'img_path', 'instances',
+                           'sample_idx', 'img', 'img_shape', 'ori_shape',
+                           'gt_bboxes', 'gt_ignore_flags', 'gt_bboxes_labels',
+                           'scale', 'scale_factor', 'keep_ratio',
+                           'homography_matrix'))
+        ]))
+val_dataloader = dict(
+    batch_size=2,
+    num_workers=2,
+    persistent_workers=True,
     drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
-        type='DOTAv2Dataset',
-        data_root='./mmrotate/data/split_ss_dota/',
-        ann_file='val/annfiles/',
+        type=dataset_type,
+        data_root=data_root,
+        ann_file='val/labelTxt/',
         data_prefix=dict(img_path='val/images/'),
         test_mode=True,
+        OOD_labels=[
+             'plane', 'baseball-diamond', 'bridge', 'ground-track-field',
+             'small-vehicle', 'large-vehicle', 'ship', 'tennis-court',
+             'basketball-court', 'soccer-ball-field', 'roundabout',
+             'harbor', 'helicopter', 'container-crane', 'airport',
+             'helipad'
+        ],
         pipeline=[
             dict(type='mmdet.LoadImageFromFile', backend_args=None),
-            dict(type='mmdet.Resize', scale=(1024, 1024), keep_ratio=True),
             dict(
                 type='mmdet.LoadAnnotations', with_bbox=True, box_type='qbox'),
             dict(
                 type='ConvertBoxType',
                 box_type_mapping=dict(gt_bboxes='rbox')),
+            dict(type='mmdet.Resize', scale=(1024, 1024), keep_ratio=True),
             dict(
                 type='mmdet.PackDetInputs',
                 meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
                            'scale_factor'))
         ]))
-train_dataloader = dict(
-    batch_size=1,
-    num_workers=0,
-    # persistent_workers=True,
-    persistent_workers=False,
+test_dataloader = dict(
+    batch_size=2,
+    num_workers=2,
+    persistent_workers=True,
     drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
-        type='DOTAv2Dataset',
-        data_root='./mmrotate/data/split_ss_dota/',
-        ann_file='train/annfiles/',
-        data_prefix=dict(img_path='train/images/'),
+        type=dataset_type,
+        data_root=data_root,
+        ann_file='val/labelTxt/',
+        data_prefix=dict(img_path='val/images/'),
         test_mode=True,
+        OOD_labels=[
+             'plane', 'baseball-diamond', 'bridge', 'ground-track-field',
+             'small-vehicle', 'large-vehicle', 'ship', 'tennis-court',
+             'basketball-court', 'soccer-ball-field', 'roundabout',
+             'harbor', 'helicopter', 'container-crane', 'airport',
+             'helipad'
+        ],
         pipeline=[
             dict(type='mmdet.LoadImageFromFile', backend_args=None),
-            dict(type='mmdet.Resize', scale=(1024, 1024), keep_ratio=True),
             dict(
                 type='mmdet.LoadAnnotations', with_bbox=True, box_type='qbox'),
             dict(
                 type='ConvertBoxType',
                 box_type_mapping=dict(gt_bboxes='rbox')),
-            dict(
-                type='mmdet.PackDetInputs',
-                meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                           'scale_factor'))
-        ]))
-
-subtrain_dataloader = dict(
-    batch_size=1,
-    num_workers=0,
-    # persistent_workers=True,
-    persistent_workers=False,
-    drop_last=False,
-    sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=dict(
-        type='DOTAv2Dataset',
-        data_root='./mmrotate/data/split_ss_dota/',
-        ann_file='subtrain/annfiles/',
-        data_prefix=dict(img_path='subtrain/images/'),
-        test_mode=True,
-        pipeline=[
-            dict(type='mmdet.LoadImageFromFile', backend_args=None),
             dict(type='mmdet.Resize', scale=(1024, 1024), keep_ratio=True),
             dict(
-                type='mmdet.LoadAnnotations', with_bbox=True, box_type='qbox'),
-            dict(
-                type='ConvertBoxType',
-                box_type_mapping=dict(gt_bboxes='rbox')),
-            dict(
                 type='mmdet.PackDetInputs',
                 meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
                            'scale_factor'))
         ]))
-
 val_evaluator = dict(type='DOTAMetric', metric='mAP')
-test_evaluator = dict(type='DOTAMetric', metric='mAP_for_OOD_labels')
+test_evaluator = dict(type='DOTAMetric', metric='recall_for_OOD_labels')
 train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=12, val_interval=1)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
@@ -263,7 +267,7 @@ model = dict(
                 min_pos_iou=0.3,
                 match_low_quality=True,
                 ignore_iof_thr=-1,
-                iou_calculator=dict(type='RBbox2HBboxOverlaps2D', _scope_='mmrotate')),
+                iou_calculator=dict(type='RBbox2HBboxOverlaps2D')),
             sampler=dict(
                 type='mmdet.RandomSampler',
                 num=256,

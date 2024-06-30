@@ -15,10 +15,11 @@ from mmengine.evaluator import BaseMetric
 from mmengine.fileio import dump
 from mmengine.logging import MMLogger
 
-from mmrotate.evaluation import eval_rbbox_map
-from mmrotate.evaluation.functional.mean_ap import eval_ood_rbbox_recalls
+from mmrotate.evaluation import eval_rbbox_map, eval_ood_rbbox_recalls
 from mmrotate.registry import METRICS
 from mmrotate.structures.bbox import rbox2qbox
+
+
 
 
 @METRICS.register_module()
@@ -68,6 +69,7 @@ class DOTAMetric(BaseMetric):
     default_prefix: Optional[str] = 'dota'
 
     def __init__(self,
+                 ood_classes=None,
                  iou_thrs: Union[float, List[float]] = 0.5,
                  scale_ranges: Optional[List[tuple]] = None,
                  metric: Union[str, List[str]] = 'mAP',
@@ -80,6 +82,7 @@ class DOTAMetric(BaseMetric):
                  collect_device: str = 'cpu',
                  prefix: Optional[str] = None) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
+        self.ood_classes = ood_classes
         self.iou_thrs = [iou_thrs] if isinstance(iou_thrs, float) \
             else iou_thrs
         assert isinstance(self.iou_thrs, list)
@@ -88,9 +91,9 @@ class DOTAMetric(BaseMetric):
         if not isinstance(metric, str):
             assert len(metric) == 1
             metric = metric[0]
-        allowed_metrics = ['mAP', 'mAP_for_OOD_labels']
+        allowed_metrics = ['mAP', 'recall_for_OOD_labels']
         if metric not in allowed_metrics:
-            raise KeyError(f"metric should be one of 'mAP' or 'mAP_for_OOD_labels', but got {metric}.")
+            raise KeyError(f"metric should be one of 'mAP' or 'recall_for_OOD_labels', but got {metric}.")
         self.metric = metric
         self.predict_box_type = predict_box_type
 
@@ -349,7 +352,7 @@ class DOTAMetric(BaseMetric):
                 eval_results[f'AP{int(iou_thr * 100):02d}'] = round(mean_ap, 3)
             eval_results['mAP'] = sum(mean_aps) / len(mean_aps)
             eval_results.move_to_end('mAP', last=False)
-        elif self.metric == 'mAP_for_OOD_labels':
+        elif self.metric == 'recall_for_OOD_labels':
             assert isinstance(self.iou_thrs, list)
             dataset_name = self.dataset_meta['classes']
             dets = [pred['pred_bbox_scores'] for pred in preds]
@@ -360,6 +363,7 @@ class DOTAMetric(BaseMetric):
                 mean_recall, _ = eval_ood_rbbox_recalls(
                     dets,
                     gts,
+                    self.ood_classes,
                     scale_ranges=self.scale_ranges,
                     iou_thr=iou_thr,
                     use_07_metric=self.use_07_metric,

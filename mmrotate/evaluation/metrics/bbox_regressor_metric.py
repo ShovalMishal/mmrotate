@@ -15,62 +15,19 @@ from mmengine.evaluator import BaseMetric
 from mmengine.fileio import dump
 from mmengine.logging import MMLogger
 
-from mmrotate.evaluation import eval_rbbox_map
-from mmrotate.evaluation.functional.mean_ap import eval_ood_rbbox_recalls
+from mmrotate.evaluation import eval_rbbox_map, eval_ood_rbbox_recalls, eval_rbbox_mrecall_for_regressor
 from mmrotate.registry import METRICS
 from mmrotate.structures.bbox import rbox2qbox
 
 
 @METRICS.register_module()
-class DOTAMetric(BaseMetric):
-    """DOTA evaluation metric.
-
-    Note:  In addition to format the output results to JSON like CocoMetric,
-    it can also generate the full image's results by merging patches' results.
-    The premise is that you must use the tool provided by us to crop the DOTA
-    large images, which can be found at: ``tools/data/dota/split``.
-
-    Args:
-        iou_thrs (float or List[float]): IoU threshold. Defaults to 0.5.
-        scale_ranges (List[tuple], optional): Scale ranges for evaluating
-            mAP. If not specified, all bounding boxes would be included in
-            evaluation. Defaults to None.
-        metric (str | list[str]): Metrics to be evaluated. Only support
-            'mAP' now. If is list, the first setting in the list will
-             be used to evaluate metric.
-        predict_box_type (str): Box type of model results. If the QuadriBoxes
-            is used, you need to specify 'qbox'. Defaults to 'rbox'.
-        format_only (bool): Format the output results without perform
-            evaluation. It is useful when you want to format the result
-            to a specific format. Defaults to False.
-        outfile_prefix (str, optional): The prefix of json/zip files. It
-            includes the file path and the prefix of filename, e.g.,
-            "a/b/prefix". If not specified, a temp file will be created.
-            Defaults to None.
-        merge_patches (bool): Generate the full image's results by merging
-            patches' results.
-        iou_thr (float): IoU threshold of ``nms_rotated`` used in merge
-            patches. Defaults to 0.1.
-        eval_mode (str): 'area' or '11points', 'area' means calculating the
-            area under precision-recall curve, '11points' means calculating
-            the average precision of recalls at [0, 0.1, ..., 1].
-            The PASCAL VOC2007 defaults to use '11points', while PASCAL
-            VOC2012 defaults to use 'area'. Defaults to '11points'.
-        collect_device (str): Device name used for collecting results from
-            different ranks during distributed training. Must be 'cpu' or
-            'gpu'. Defaults to 'cpu'.
-        prefix (str, optional): The prefix that will be added in the metric
-            names to disambiguate homonymous metrics of different evaluators.
-            If prefix is not provided in the argument, self.default_prefix
-            will be used instead. Defaults to None.
-    """
-
+class BBoxRegressorMetric(BaseMetric):
     default_prefix: Optional[str] = 'dota'
 
     def __init__(self,
                  iou_thrs: Union[float, List[float]] = 0.5,
                  scale_ranges: Optional[List[tuple]] = None,
-                 metric: Union[str, List[str]] = 'mAP',
+                 metric: Union[str, List[str]] = 'bbox_regressor',
                  predict_box_type: str = 'rbox',
                  format_only: bool = False,
                  outfile_prefix: Optional[str] = None,
@@ -80,6 +37,8 @@ class DOTAMetric(BaseMetric):
                  collect_device: str = 'cpu',
                  prefix: Optional[str] = None) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
+        print(f"metric is {metric}\n")
+        self.metric = metric
         self.iou_thrs = [iou_thrs] if isinstance(iou_thrs, float) \
             else iou_thrs
         assert isinstance(self.iou_thrs, list)
@@ -88,9 +47,9 @@ class DOTAMetric(BaseMetric):
         if not isinstance(metric, str):
             assert len(metric) == 1
             metric = metric[0]
-        allowed_metrics = ['mAP', 'mAP_for_OOD_labels']
+        allowed_metrics = ['bbox_regressor']
         if metric not in allowed_metrics:
-            raise KeyError(f"metric should be one of 'mAP' or 'mAP_for_OOD_labels', but got {metric}.")
+            raise KeyError(f"metric should be only 'bbox_regressor', but got {metric}.")
         self.metric = metric
         self.predict_box_type = predict_box_type
 
@@ -103,7 +62,6 @@ class DOTAMetric(BaseMetric):
         self.outfile_prefix = outfile_prefix
         self.merge_patches = merge_patches
         self.iou_thr = iou_thr
-
         self.use_07_metric = True if eval_mode == '11points' else False
 
     def merge_results(self, results: Sequence[dict],
@@ -236,16 +194,12 @@ class DOTAMetric(BaseMetric):
         bbox_json_results = []
         for idx, result in enumerate(results):
             image_id = result.get('img_id', idx)
-            labels = result['labels']
             bboxes = result['bboxes']
-            scores = result['scores']
             # bbox results
-            for i, label in enumerate(labels):
+            for i in range(len(bboxes)):
                 data = dict()
                 data['image_id'] = image_id
                 data['bbox'] = bboxes[i].tolist()
-                data['score'] = float(scores[i])
-                data['category_id'] = int(label)
                 bbox_json_results.append(data)
 
         result_files = dict()
@@ -256,15 +210,6 @@ class DOTAMetric(BaseMetric):
 
     def process(self, data_batch: Sequence[dict],
                 data_samples: Sequence[dict]) -> None:
-        """Process one batch of data samples and predictions. The processed
-        results should be stored in ``self.results``, which will be used to
-        compute the metrics when all batches have been processed.
-
-        Args:
-            data_batch (dict): A batch of data from the dataloader.
-            data_samples (Sequence[dict]): A batch of data samples that
-                contain annotations and predictions.
-        """
         for data_sample in data_samples:
             gt = copy.deepcopy(data_sample)
             gt_instances = gt['gt_instances']
@@ -281,19 +226,23 @@ class DOTAMetric(BaseMetric):
             pred = data_sample['pred_instances']
             result['img_id'] = data_sample['img_id']
             result['bboxes'] = pred['bboxes'].cpu().numpy()
-            result['scores'] = pred['scores'].cpu().numpy()
-            result['labels'] = pred['labels'].cpu().numpy()
-
-            result['pred_bbox_scores'] = []
-            for label in range(len(self.dataset_meta['classes'])):
-                index = np.where(result['labels'] == label)[0]
-                pred_bbox_scores = np.hstack([
-                    result['bboxes'][index], result['scores'][index].reshape(
-                        (-1, 1))
-                ])
-                result['pred_bbox_scores'].append(pred_bbox_scores)
-
+            # result['loss_bbox'] = data_sample['loss_bbox'].cpu().numpy()
+            # result['num_of_regressions'] = data_sample['num_of_regressions']
             self.results.append((ann, result))
+
+    def compute_metrics_old(self, results: list) -> dict:
+        eval_results = OrderedDict()
+        logger: MMLogger = MMLogger.get_current_instance()
+        gts, preds = zip(*results)
+        loss_sum = 0
+        num_of_regressions = 0
+        for pred in preds:
+            loss_sum += pred['loss_bbox']
+            num_of_regressions += pred['num_of_regressions']
+        loss_avg = loss_sum / num_of_regressions
+        eval_results['avg_loss'] = loss_avg
+        logger.info(f'averaged loss is {loss_avg}\n')
+        return eval_results
 
     def compute_metrics(self, results: list) -> dict:
         """Compute the metrics from processed results.
@@ -328,15 +277,15 @@ class DOTAMetric(BaseMetric):
                             f'{osp.dirname(outfile_prefix)}')
                 return eval_results
 
-        if self.metric == 'mAP':
+        if self.metric == 'bbox_regressor':
             assert isinstance(self.iou_thrs, list)
             dataset_name = self.dataset_meta['classes']
-            dets = [pred['pred_bbox_scores'] for pred in preds]
+            dets = [pred['bboxes'] for pred in preds]
 
-            mean_aps = []
+
             for iou_thr in self.iou_thrs:
                 logger.info(f'\n{"-" * 15}iou_thr: {iou_thr}{"-" * 15}')
-                mean_ap, _ = eval_rbbox_map(
+                mean_recall, results = eval_rbbox_map_for_regressor(
                     dets,
                     gts,
                     scale_ranges=self.scale_ranges,
@@ -345,31 +294,11 @@ class DOTAMetric(BaseMetric):
                     box_type=self.predict_box_type,
                     dataset=dataset_name,
                     logger=logger)
-                mean_aps.append(mean_ap)
-                eval_results[f'AP{int(iou_thr * 100):02d}'] = round(mean_ap, 3)
-            eval_results['mAP'] = sum(mean_aps) / len(mean_aps)
-            eval_results.move_to_end('mAP', last=False)
-        elif self.metric == 'mAP_for_OOD_labels':
-            assert isinstance(self.iou_thrs, list)
-            dataset_name = self.dataset_meta['classes']
-            dets = [pred['pred_bbox_scores'] for pred in preds]
 
-            mean_recall_list = []
-            for iou_thr in self.iou_thrs:
-                logger.info(f'\n{"-" * 15}iou_thr: {iou_thr}{"-" * 15}')
-                mean_recall, _ = eval_ood_rbbox_recalls(
-                    dets,
-                    gts,
-                    scale_ranges=self.scale_ranges,
-                    iou_thr=iou_thr,
-                    use_07_metric=self.use_07_metric,
-                    box_type=self.predict_box_type,
-                    dataset=dataset_name,
-                    logger=logger)
-                mean_recall_list.append(mean_recall)
-                eval_results[f'AP{int(iou_thr * 100):02d}'] = round(mean_recall, 3)
-            eval_results['mean_recall_for_ood'] = sum(mean_recall_list) / len(mean_recall_list)
-            eval_results.move_to_end('mean_recall_for_ood', last=False)
+                # eval_results['precision'] = round(mean_results["precision"], 3)
+                eval_results['recall'] = round(mean_recall, 3)
+            eval_results.move_to_end('recall', last=False)
+
         else:
             raise NotImplementedError
         return eval_results

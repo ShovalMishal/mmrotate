@@ -352,18 +352,19 @@ def crop_and_save_img(info, windows, window_anns, img_dir, no_padding,
                 patch = padding_patch
         patch_info['height'] = patch.shape[0]
         patch_info['width'] = patch.shape[1]
+        patch_info['gsd'] = target_gsd if normalize_gsd else info['gsd']
 
-        cv2.imwrite(osp.join(save_dir, patch_info['id'] + img_ext), patch)
+
         patch_info['filename'] = patch_info['id'] + img_ext
         patch_infos.append(patch_info)
 
         bboxes_num = patch_info['ann']['bboxes'].shape[0]
         outdir = os.path.join(anno_dir, patch_info['id'] + '.txt')
-
-        with codecs.open(outdir, 'w', 'utf-8') as f_out:
-            if bboxes_num == 0:
-                pass
-            else:
+        if bboxes_num != 0:
+            # save image only if there are objects in the image
+            cv2.imwrite(osp.join(save_dir, patch_info['id'] + img_ext), patch)
+            with codecs.open(outdir, 'w', 'utf-8') as f_out:
+                # f_out.write(f'gsd:{target_gsd}\n')
                 for idx in range(bboxes_num):
                     obj = patch_info['ann']
                     outline = ' '.join(list(map(str, obj['bboxes'][idx])))
@@ -585,7 +586,7 @@ def main():
         sizes += [int(size / rate) for size in args.sizes]
         gaps += [int(gap / rate) for gap in args.gaps]
     save_imgs = osp.join(args.save_dir, 'images')
-    save_files = osp.join(args.save_dir, 'annfiles')
+    save_files = osp.join(args.save_dir, 'labelTxt')
     os.makedirs(save_imgs)
     os.makedirs(save_files)
     logger = setup_logger(args.save_dir)

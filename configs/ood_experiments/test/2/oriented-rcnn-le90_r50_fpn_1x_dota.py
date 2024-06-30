@@ -1,5 +1,13 @@
 dataset_type = 'DOTAv2Dataset'
-data_root = '/home/shoval/Documents/Repositories/data/split_ss_dota/'
+runai_run=False
+data_root = '/home/shoval/Documents/Repositories/data/split_ss_dota/' if not runai_run else '/storage/shoval/datasets/split_ss_dota/'
+OOD_labels = [
+    'plane', 'baseball-diamond', 'bridge', 'ground-track-field',
+    'small-vehicle', 'large-vehicle', 'ship', 'tennis-court',
+    'basketball-court', 'soccer-ball-field', 'roundabout',
+    'harbor', 'helicopter', 'container-crane', 'airport',
+    'helipad'
+]
 backend_args = None
 train_pipeline = [
     dict(type='mmdet.LoadImageFromFile', backend_args=None),
@@ -39,11 +47,12 @@ train_dataloader = dict(
     sampler=dict(type='DefaultSampler', shuffle=True),
     batch_sampler=None,
     dataset=dict(
-        type='DOTAv2Dataset',
-        data_root='/home/shoval/Documents/Repositories/data/split_ss_dota/',
+        type=dataset_type,
+        data_root=data_root,
         ann_file='train/labelTxt/',
         data_prefix=dict(img_path='train/images/'),
         filter_cfg=dict(filter_empty_gt=True),
+        OOD_labels=None,
         pipeline=[
             dict(type='mmdet.LoadImageFromFile', backend_args=None),
             dict(
@@ -53,23 +62,26 @@ train_dataloader = dict(
                 box_type_mapping=dict(gt_bboxes='rbox')),
             dict(type='mmdet.Resize', scale=(1024, 1024), keep_ratio=True),
             dict(
-                type='mmdet.RandomFlip',
-                prob=0.75,
-                direction=['horizontal', 'vertical', 'diagonal']),
-            dict(type='mmdet.PackDetInputs')
+                type='mmdet.PackDetInputs',
+                meta_keys=('img_id', 'file_name', 'img_path', 'instances',
+                           'sample_idx', 'img', 'img_shape', 'ori_shape',
+                           'gt_bboxes', 'gt_ignore_flags', 'gt_bboxes_labels',
+                           'scale', 'scale_factor', 'keep_ratio',
+                           'homography_matrix'))
         ]))
 val_dataloader = dict(
-    batch_size=1,
+    batch_size=2,
     num_workers=2,
     persistent_workers=True,
     drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
-        type='DOTAv2Dataset',
-        data_root='/home/shoval/Documents/Repositories/data/split_ss_dota/',
+        type=dataset_type,
+        data_root=data_root,
         ann_file='val/labelTxt/',
         data_prefix=dict(img_path='val/images/'),
         test_mode=True,
+        OOD_labels=None,
         pipeline=[
             dict(type='mmdet.LoadImageFromFile', backend_args=None),
             dict(
@@ -84,17 +96,18 @@ val_dataloader = dict(
                            'scale_factor'))
         ]))
 test_dataloader = dict(
-    batch_size=1,
-    num_workers=0,
-    persistent_workers=False,
+    batch_size=2,
+    num_workers=2,
+    persistent_workers=True,
     drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
-        type='DOTAv2Dataset',
-        data_root='/home/shoval/Documents/Repositories/data/split_ss_dota/',
+        type=dataset_type,
+        data_root=data_root,
         ann_file='val/labelTxt/',
         data_prefix=dict(img_path='val/images/'),
         test_mode=True,
+        OOD_labels=None,
         pipeline=[
             dict(type='mmdet.LoadImageFromFile', backend_args=None),
             dict(
@@ -109,7 +122,7 @@ test_dataloader = dict(
                            'scale_factor'))
         ]))
 val_evaluator = dict(type='DOTAMetric', metric='mAP')
-test_evaluator = dict(type='DOTAMetric', metric='recall_for_OOD_labels')
+test_evaluator = dict(type='DOTAMetric', metric='recall_for_OOD_labels', ood_classes=OOD_labels)
 train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=12, val_interval=1)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
@@ -277,13 +290,13 @@ model = dict(
             debug=False)),
     test_cfg=dict(
         rpn=dict(
-            nms_pre=4000,
-            max_per_img=4000,
+            nms_pre=10000,
+            max_per_img=10000,
             nms=dict(type='nms', iou_threshold=0.8),
             min_bbox_size=0),
         rcnn=dict(
             nms_pre=2000,
             min_bbox_size=0,
-            score_thr=0.001,
+            score_thr=0.05,
             nms=dict(type='nms_rotated', iou_threshold=0.1),
             max_per_img=2000)))

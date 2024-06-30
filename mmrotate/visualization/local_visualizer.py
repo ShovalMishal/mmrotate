@@ -42,7 +42,7 @@ class RotLocalVisualizer(DetLocalVisualizer):
 
     def _draw_instances(self, image: np.ndarray, instances: ['InstanceData'],
                         classes: Optional[List[str]],
-                        palette: Optional[List[tuple]]) -> np.ndarray:
+                        palette: Optional[List[tuple]], draw_text=True) -> np.ndarray:
         """Draw instances of GT or prediction.
 
         Args:
@@ -100,18 +100,18 @@ class RotLocalVisualizer(DetLocalVisualizer):
                 if 'scores' in instances:
                     score = round(float(instances.scores[i]) * 100, 1)
                     label_text += f': {score}'
-
-                self.draw_texts(
-                    label_text,
-                    pos,
-                    colors=text_colors[i],
-                    font_sizes=int(13 * scales[i]),
-                    bboxes=[{
-                        'facecolor': 'black',
-                        'alpha': 0.8,
-                        'pad': 0.7,
-                        'edgecolor': 'none'
-                    }])
+                if draw_text:
+                    self.draw_texts(
+                        label_text,
+                        pos,
+                        colors=text_colors[i],
+                        font_sizes=int(13 * scales[i]),
+                        bboxes=[{
+                            'facecolor': 'black',
+                            'alpha': 0.8,
+                            'pad': 0.7,
+                            'edgecolor': 'none'
+                        }])
 
         if 'masks' in instances:
             labels = instances.labels
