@@ -226,7 +226,7 @@ class DOTAv2DatasetOOD2(DOTADataset):
 
     METAINFO = {
         'classes':
-        ('storage-tank', 'swimming-pool'),
+        ('ship'),
         # palette is a list of color tuples, which is used for visualization.
         'palette': [(165, 42, 42), (189, 183, 107)]
     }
