@@ -284,7 +284,7 @@ class BBoxRegressorMetric(BaseMetric):
 
             for iou_thr in self.iou_thrs:
                 logger.info(f'\n{"-" * 15}iou_thr: {iou_thr}{"-" * 15}')
-                mean_recall, results = eval_rbbox_map_for_regressor(
+                mean_recall, results = eval_rbbox_mrecall_for_regressor(
                     dets,
                     gts,
                     scale_ranges=self.scale_ranges,
