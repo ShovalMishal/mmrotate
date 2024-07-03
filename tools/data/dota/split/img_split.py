@@ -410,16 +410,21 @@ def single_split(arguments, sizes, gaps, img_rate_thr, iof_thr, no_padding,
     Returns:
         list[dict]: Information of paths.
     """
-    info, img_dir = arguments
-    if normalize_gsd:
-        info = normalize_anns_and_size_accord_gsd(info, target_gsd)
-    windows = get_sliding_window(info, sizes, gaps, img_rate_thr)
-    window_anns = get_window_obj(info, windows, iof_thr)
-    patch_infos = crop_and_save_img(info, windows, window_anns, img_dir,
-                                    no_padding, padding_value, save_dir,
-                                    anno_dir, img_ext, normalize_gsd, target_gsd)
-    if not patch_infos:
-        print(f"Patch {info['id']} with gsd {info['gsd']} and shape {info['width'], info['height']} cannot resize..\n")
+    try:
+        info, img_dir = arguments
+        if normalize_gsd:
+            info = normalize_anns_and_size_accord_gsd(info, target_gsd)
+        windows = get_sliding_window(info, sizes, gaps, img_rate_thr)
+        window_anns = get_window_obj(info, windows, iof_thr)
+        patch_infos = crop_and_save_img(info, windows, window_anns, img_dir,
+                                        no_padding, padding_value, save_dir,
+                                        anno_dir, img_ext, normalize_gsd, target_gsd)
+        if not patch_infos:
+            print(f"Patch {info['id']} with gsd {info['gsd']} and shape {info['width'], info['height']} cannot resize..\n")
+            return []
+    except Exception as e:
+        print(f"Error in image {info['id']} with gsd {info['gsd']} and shape {info['width'], info['height']}\n")
+        print(e)
         return []
 
     lock.acquire()
