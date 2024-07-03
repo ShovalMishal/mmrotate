@@ -18,7 +18,7 @@ from mmengine.logging import MMLogger
 from mmrotate.registry import METRICS
 from mmrotate.structures.bbox import rbox2qbox
 
-
+from mmrotate.evaluation import eval_rbbox_mrecall_for_regressor
 @METRICS.register_module()
 class BBoxRegressorMetric(BaseMetric):
     default_prefix: Optional[str] = 'dota'
