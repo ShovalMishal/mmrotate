@@ -210,9 +210,9 @@ class DOTAv2DatasetOOD1(DOTADataset):
 
     METAINFO = {
         'classes':
-        ('small-vehicle', 'large-vehicle'),
+        ('small-vehicle',),
         # palette is a list of color tuples, which is used for visualization.
-        'palette': [(165, 42, 42), (189, 183, 107)]
+        'palette': [(165, 42, 42)]
     }
 
 @DATASETS.register_module()
