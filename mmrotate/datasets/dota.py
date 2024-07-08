@@ -216,6 +216,22 @@ class DOTAv2DatasetOOD1(DOTADataset):
     }
 
 @DATASETS.register_module()
+class DOTAv2DatasetOOD11(DOTADataset):
+    """DOTA-v2.0 dataset for detection.
+
+    Note: ``ann_file`` in DOTAv2Dataset is different from the BaseDataset.
+    In BaseDataset, it is the path of an annotation file. In DOTAv2Dataset,
+    it is the path of a folder containing XML files.
+    """
+
+    METAINFO = {
+        'classes':
+        ('small-vehicle', 'large-vehicle'),
+        # palette is a list of color tuples, which is used for visualization.
+        'palette': [(165, 42, 42), (189, 183, 107)]
+    }
+
+@DATASETS.register_module()
 class DOTAv2DatasetOOD2(DOTADataset):
     """DOTA-v2.0 dataset for detection.
 
@@ -242,9 +258,9 @@ class DOTAv2DatasetOOD3(DOTADataset):
 
     METAINFO = {
         'classes':
-        ('harbor', 'storage-tank'),
+        ('storage-tank',),
         # palette is a list of color tuples, which is used for visualization.
-        'palette': [(165, 42, 42), (189, 183, 107)]
+        'palette': [(165, 42, 42)]
     }
 
 @DATASETS.register_module()
