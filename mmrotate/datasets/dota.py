@@ -51,6 +51,13 @@ class DOTADataset(BaseDataset):
         self.ignore_ood_labels = ignore_ood_labels
         super().__init__(**kwargs)
 
+    def get_index_img_id(self, img_id):
+        for idx, sample in enumerate(self.load_data_list()):
+            if sample['img_id'] == img_id:
+                return idx
+        return None
+
+
     def load_data_list(self) -> List[dict]:
         """Load annotations from an annotation file named as ``self.ann_file``
         Returns:
@@ -258,9 +265,9 @@ class DOTAv2DatasetOOD3(DOTADataset):
 
     METAINFO = {
         'classes':
-        ('storage-tank',),
+        ('storage-tank', 'harbor'),
         # palette is a list of color tuples, which is used for visualization.
-        'palette': [(165, 42, 42)]
+        'palette': [(165, 42, 42), (189, 183, 107)]
     }
 
 @DATASETS.register_module()
