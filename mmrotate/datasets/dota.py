@@ -265,9 +265,9 @@ class DOTAv2DatasetOOD3(DOTADataset):
 
     METAINFO = {
         'classes':
-        ('storage-tank', 'harbor'),
+        ('harbor',),
         # palette is a list of color tuples, which is used for visualization.
-        'palette': [(165, 42, 42), (189, 183, 107)]
+        'palette': [(165, 42, 42)]
     }
 
 @DATASETS.register_module()
