@@ -334,4 +334,19 @@ class DOTAv2DatasetOOD7(DOTADataset):
         'palette': [(165, 42, 42)]
     }
 
+@DATASETS.register_module()
+class DOTAv2DatasetOOD8(DOTADataset):
+    """DOTA-v2.0 dataset for detection.
+
+    Note: ``ann_file`` in DOTAv2Dataset is different from the BaseDataset.
+    In BaseDataset, it is the path of an annotation file. In DOTAv2Dataset,
+    it is the path of a folder containing XML files.
+    """
+
+    METAINFO = {
+        'classes':
+        ('bridge',),
+        # palette is a list of color tuples, which is used for visualization.
+        'palette': [(165, 42, 42)]
+    }
 
