@@ -62,12 +62,12 @@ class RotLocalVisualizer(DetLocalVisualizer):
             labels = instances.labels
 
             max_label = int(max(labels) if len(labels) > 0 else 0)
-            text_palette = get_palette(self.text_color, max_label + 1)
+            text_palette = get_palette(palette, max_label + 1)
             text_colors = [text_palette[label] for label in labels]
 
             bbox_color = palette if self.bbox_color is None \
                 else self.bbox_color
-            bbox_palette = get_palette(bbox_color, max_label + 1)
+            bbox_palette = get_palette(palette, max_label + 1)
             colors = [bbox_palette[label] for label in labels]
 
             if isinstance(bboxes, Tensor):
@@ -98,16 +98,16 @@ class RotLocalVisualizer(DetLocalVisualizer):
                 label_text = classes[
                     label] if classes is not None else f'class {label}'
                 if 'scores' in instances:
-                    score = round(float(instances.scores[i]) * 100, 1)
-                    label_text += f': {score}'
+                    score = instances.scores[i].item()
+                    # label_text += f': {score}'
                 if draw_text:
                     self.draw_texts(
                         label_text,
                         pos,
                         colors=text_colors[i],
-                        font_sizes=int(13 * scales[i]),
+                        font_sizes=int(30 * scales[i]),
                         bboxes=[{
-                            'facecolor': 'black',
+                            'facecolor': 'white',
                             'alpha': 0.8,
                             'pad': 0.7,
                             'edgecolor': 'none'

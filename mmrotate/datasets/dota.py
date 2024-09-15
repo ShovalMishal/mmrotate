@@ -6,6 +6,7 @@ import torch
 from mmengine.dataset import BaseDataset
 from mmengine.structures import InstanceData
 from mmrotate.registry import DATASETS
+import re
 
 
 @DATASETS.register_module()
@@ -67,6 +68,10 @@ class DOTADataset(BaseDataset):
                    for i, c in enumerate(self.metainfo['classes'])
                    }  # in mmdet v2.0 label is 0-based
         data_list = []
+
+        def natural_sort_key(s, _nsre=re.compile('([0-9]+)')):
+            return [int(text) if text.isdigit() else text.lower() for text in _nsre.split(s)]
+
         if self.ann_file == '':
             img_files = glob.glob(
                 osp.join(self.data_prefix['img_path'], f'*.{self.img_suffix}'))
@@ -85,6 +90,7 @@ class DOTADataset(BaseDataset):
             return data_list
         else:
             txt_files = glob.glob(osp.join(self.ann_file, '*.txt'))
+            txt_files = sorted(txt_files, key=natural_sort_key)
             if len(txt_files) == 0:
                 raise ValueError('There is no txt file in '
                                  f'{self.ann_file}')
@@ -348,5 +354,90 @@ class DOTAv2DatasetOOD8(DOTADataset):
         ('bridge',),
         # palette is a list of color tuples, which is used for visualization.
         'palette': [(165, 42, 42)]
+    }
+
+@DATASETS.register_module()
+class DOTAv2DatasetMSOOD1(DOTADataset):
+    """DOTA-v2.0 dataset for detection.
+
+    Note: ``ann_file`` in DOTAv2Dataset is different from the BaseDataset.
+    In BaseDataset, it is the path of an annotation file. In DOTAv2Dataset,
+    it is the path of a folder containing XML files.
+    """
+    METAINFO = {
+        'classes':
+            ('small-vehicle',),
+        # palette is a list of color tuples, which is used for visualization.
+        'palette': [(165, 42, 42)]
+    }
+
+@DATASETS.register_module()
+class DOTAv2DatasetMSOOD2(DOTADataset):
+    """DOTA-v2.0 dataset for detection.
+
+    Note: ``ann_file`` in DOTAv2Dataset is different from the BaseDataset.
+    In BaseDataset, it is the path of an annotation file. In DOTAv2Dataset,
+    it is the path of a folder containing XML files.
+    """
+    METAINFO = {
+        'classes':
+        ('small-vehicle', 'large-vehicle', 'swimming-pool'),
+        # palette is a list of color tuples, which is used for visualization.
+        'palette': [(165, 42, 42), (189, 183, 107), (0, 255, 0)]
+    }
+
+@DATASETS.register_module()
+class DOTAv2DatasetMSOOD3(DOTADataset):
+    """DOTA-v2.0 dataset for detection.
+
+    Note: ``ann_file`` in DOTAv2Dataset is different from the BaseDataset.
+    In BaseDataset, it is the path of an annotation file. In DOTAv2Dataset,
+    it is the path of a folder containing XML files.
+    """
+    METAINFO = {
+        'classes':
+        ('plane', 'tennis-court', 'ship'),
+        # palette is a list of color tuples, which is used for visualization.
+        'palette': [(165, 42, 42), (189, 183, 107), (0, 255, 0)]
+    }
+
+@DATASETS.register_module()
+class DOTAv2DatasetMSOOD4(DOTADataset):
+    """DOTA-v2.0 dataset for detection.
+
+    Note: ``ann_file`` in DOTAv2Dataset is different from the BaseDataset.
+    In BaseDataset, it is the path of an annotation file. In DOTAv2Dataset,
+    it is the path of a folder containing XML files.
+    """
+    METAINFO = {
+        'classes':
+        ('baseball-diamond', 'bridge',
+         'small-vehicle', 'large-vehicle',
+         'storage-tank',
+         'swimming-pool'),
+        # palette is a list of color tuples, which is used for visualization.
+        'palette': [(165, 42, 42), (189, 183, 107), (0, 255, 0), (255, 0, 0),
+                    (138, 43, 226), (255, 128, 0), (255, 0, 255),
+                    (0, 255, 255), (255, 193, 193), (0, 51, 153),
+                    (255, 250, 205), (0, 139, 139), (255, 255, 0),
+                    (147, 116, 116), (0, 0, 255), (220, 20, 60), (119, 11, 32),
+                    (0, 0, 142)]
+    }
+
+@DATASETS.register_module()
+class DOTAv2DatasetMSOOD5(DOTADataset):
+    """DOTA-v2.0 dataset for detection.
+
+    Note: ``ann_file`` in DOTAv2Dataset is different from the BaseDataset.
+    In BaseDataset, it is the path of an annotation file. In DOTAv2Dataset,
+    it is the path of a folder containing XML files.
+    """
+    METAINFO = {
+        'classes':
+        ('bridge',
+         'harbor'
+         'plane'),
+        # palette is a list of color tuples, which is used for visualization.
+        'palette': [(165, 42, 42), (189, 183, 107), (0, 255, 0)]
     }
 

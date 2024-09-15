@@ -144,8 +144,8 @@ def parse_args():
     assert args.save_ext in ['.png', '.jpg', 'bmp', '.tif']
     assert args.iof_thr >= 0 and args.iof_thr < 1
     assert args.iof_thr >= 0 and args.iof_thr <= 1
-    assert not osp.exists(args.save_dir), \
-        f'{osp.join(args.save_dir)} already exists'
+    # assert not osp.exists(args.save_dir), \
+    #     f'{osp.join(args.save_dir)} already exists'
     return args
 
 
@@ -308,8 +308,9 @@ def crop_and_save_img(info, windows, window_anns, img_dir, no_padding,
         list[dict]: Information of paths.
     """
     img = cv2.imread(osp.join(img_dir, info['filename']))
-    if normalize_gsd:
-        new_width, new_height, _ = calc_gsds_factor_and_new_im_shape(orig_gsd=info['gsd'], target_gsd=target_gsd,
+    if normalize_gsd or normalize_without_gsd:
+        orig_gsd = info['gsd'] if normalize_gsd else 0.25
+        new_width, new_height, _ = calc_gsds_factor_and_new_im_shape(orig_gsd=orig_gsd, target_gsd=target_gsd,
                                                           width=img.shape[1], height=img.shape[0])
         print(f"image id:{info['id']}\n")
         print((new_width, new_height))
@@ -359,10 +360,11 @@ def crop_and_save_img(info, windows, window_anns, img_dir, no_padding,
         patch_infos.append(patch_info)
 
         bboxes_num = patch_info['ann']['bboxes'].shape[0]
-        outdir = os.path.join(anno_dir, patch_info['id'] + '.txt')
+        target_gsd_str = str(target_gsd).replace(".", "")
+        outdir = os.path.join(anno_dir, patch_info['id'] + "_" + target_gsd_str + '.txt')
         if bboxes_num != 0:
             # save image only if there are objects in the image
-            cv2.imwrite(osp.join(save_dir, patch_info['id'] + img_ext), patch)
+            cv2.imwrite(osp.join(save_dir, patch_info['id'] + "_" + target_gsd_str + img_ext), patch)
             with codecs.open(outdir, 'w', 'utf-8') as f_out:
                 # f_out.write(f'gsd:{target_gsd}\n')
                 for idx in range(bboxes_num):
@@ -379,8 +381,9 @@ def calc_gsds_factor_and_new_im_shape(orig_gsd, target_gsd, width, height):
     gsds_div = target_gsd / orig_gsd
     return ceil(width/gsds_div), ceil(height/gsds_div), gsds_div
 
-def normalize_anns_and_size_accord_gsd(info, target_gsd):
-    info['width'], info['height'], gsds_div = calc_gsds_factor_and_new_im_shape(orig_gsd=info['gsd'], target_gsd=target_gsd,
+def normalize_anns_and_size_accord_gsd(info, target_gsd, orig_gsd):
+    # we assume original gsd is 0.25
+    info['width'], info['height'], gsds_div = calc_gsds_factor_and_new_im_shape(orig_gsd=orig_gsd, target_gsd=target_gsd,
                                                                       width=info['width'], height=info['height'])
     info['ann']['bboxes'] = np.ceil(info['ann']['bboxes']/gsds_div).astype(int)
     return info
@@ -412,8 +415,9 @@ def single_split(arguments, sizes, gaps, img_rate_thr, iof_thr, no_padding,
     """
     try:
         info, img_dir = arguments
-        if normalize_gsd:
-            info = normalize_anns_and_size_accord_gsd(info, target_gsd)
+        if normalize_gsd or normalize_without_gsd:
+            orig_gsd = info['gsd'] if normalize_gsd else 0.25
+            info = normalize_anns_and_size_accord_gsd(info, target_gsd, orig_gsd)
         windows = get_sliding_window(info, sizes, gaps, img_rate_thr)
         window_anns = get_window_obj(info, windows, iof_thr)
         patch_infos = crop_and_save_img(info, windows, window_anns, img_dir,
@@ -592,8 +596,8 @@ def main():
         gaps += [int(gap / rate) for gap in args.gaps]
     save_imgs = osp.join(args.save_dir, 'images')
     save_files = osp.join(args.save_dir, 'labelTxt')
-    os.makedirs(save_imgs)
-    os.makedirs(save_files)
+    os.makedirs(save_imgs, exist_ok=True)
+    os.makedirs(save_files, exist_ok=True)
     logger = setup_logger(args.save_dir)
 
     print('Loading original data!!!')
