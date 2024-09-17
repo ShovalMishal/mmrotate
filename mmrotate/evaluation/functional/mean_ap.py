@@ -7,7 +7,7 @@ from mmcv.ops import box_iou_quadri, box_iou_rotated
 from mmdet.evaluation.functional import average_precision
 from mmengine.logging import print_log
 from terminaltables import AsciiTable
-
+from tqdm import tqdm
 
 def tpfp_default(det_bboxes,
                  gt_bboxes,
@@ -414,7 +414,7 @@ def eval_rbbox_mrecall_for_regressor(det_results,
     area_ranges = ([(rg[0]**2, rg[1]**2) for rg in scale_ranges]
                    if scale_ranges is not None else None)
 
-    pool = get_context('spawn').Pool(nproc)
+    # pool = get_context('fork').Pool(nproc)
     eval_results = []
     for i in range(num_classes):
         # get gt and det bboxes of this class
@@ -422,12 +422,13 @@ def eval_rbbox_mrecall_for_regressor(det_results,
             det_results, annotations, i, box_type)
 
         # compute tp and fp for each image with multiple processes
-        tpfp = pool.starmap(
-            tpfp_default,
-            zip(cls_dets, cls_gts, cls_gts_ignore,
-                [iou_thr for _ in range(num_imgs)],
-                [box_type for _ in range(num_imgs)],
-                [area_ranges for _ in range(num_imgs)]))
+        tpfp = []
+        for det, gt, gt_ignore, iou_thr, box_type, area_range in tqdm(zip(cls_dets, cls_gts, cls_gts_ignore,
+                                                                     [iou_thr for _ in range(num_imgs)],
+                                                                     [box_type for _ in range(num_imgs)],
+                                                                     [area_ranges for _ in range(num_imgs)])):
+            tpfp.append(tpfp_default(det, gt, gt_ignore, iou_thr, box_type, area_range))
+
         tp, fp = tuple(zip(*tpfp))
         # calculate gt number of each scale
         # ignored gts or gts beyond the specific scale are not counted
