@@ -473,7 +473,7 @@ def eval_rbbox_mrecall_for_regressor(det_results,
             'recall': recall,
             'precision': precision
         })
-    pool.close()
+
     if scale_ranges is not None:
         # shape (num_classes, num_scales)
         all_recall = np.vstack([cls_result['recall'] for cls_result in eval_results])
