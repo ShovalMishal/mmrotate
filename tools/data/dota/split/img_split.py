@@ -118,6 +118,11 @@ def add_parser(parser):
         action='store_true',
         help='normalized data according to gsd values')
 
+    parser.add_argument(
+        '--normalize-without-gsd',
+        action='store_true',
+        help='normalized data without gsd values')
+
 
 def parse_args():
     """Parse arguments."""
@@ -290,7 +295,7 @@ def get_window_obj(info, windows, iof_thr):
 
 
 def crop_and_save_img(info, windows, window_anns, img_dir, no_padding,
-                      padding_value, save_dir, anno_dir, img_ext, normalize_gsd=False, target_gsd=0):
+                      padding_value, save_dir, anno_dir, img_ext, normalize_without_gsd=False, normalize_gsd=False, target_gsd=0):
     """
 
     Args:
@@ -361,10 +366,13 @@ def crop_and_save_img(info, windows, window_anns, img_dir, no_padding,
 
         bboxes_num = patch_info['ann']['bboxes'].shape[0]
         target_gsd_str = str(target_gsd).replace(".", "")
-        outdir = os.path.join(anno_dir, patch_info['id'] + "_" + target_gsd_str + '.txt')
+        outdir = os.path.join(anno_dir, patch_info['id'] + "_" + target_gsd_str + '.txt') if normalize_gsd else (
+            os.path.join(anno_dir, patch_info['id'] + '.txt'))
         if bboxes_num != 0:
+            img_path = osp.join(save_dir, patch_info['id'] + "_" + target_gsd_str + img_ext) if normalize_gsd else (
+                osp.join(save_dir, patch_info['id'] + img_ext))
             # save image only if there are objects in the image
-            cv2.imwrite(osp.join(save_dir, patch_info['id'] + "_" + target_gsd_str + img_ext), patch)
+            cv2.imwrite(img_path, patch)
             with codecs.open(outdir, 'w', 'utf-8') as f_out:
                 # f_out.write(f'gsd:{target_gsd}\n')
                 for idx in range(bboxes_num):
@@ -391,7 +399,7 @@ def normalize_anns_and_size_accord_gsd(info, target_gsd, orig_gsd):
 
 def single_split(arguments, sizes, gaps, img_rate_thr, iof_thr, no_padding,
                  padding_value, save_dir, anno_dir, img_ext, lock, prog, total,
-                 logger, normalize_gsd, target_gsd):
+                 logger, normalize_gsd, target_gsd, normalize_without_gsd):
     """
 
     Args:
@@ -422,7 +430,7 @@ def single_split(arguments, sizes, gaps, img_rate_thr, iof_thr, no_padding,
         window_anns = get_window_obj(info, windows, iof_thr)
         patch_infos = crop_and_save_img(info, windows, window_anns, img_dir,
                                         no_padding, padding_value, save_dir,
-                                        anno_dir, img_ext, normalize_gsd, target_gsd)
+                                        anno_dir, img_ext, normalize_without_gsd, normalize_gsd, target_gsd)
         if not patch_infos:
             print(f"Patch {info['id']} with gsd {info['gsd']} and shape {info['width'], info['height']} cannot resize..\n")
             return []
@@ -516,7 +524,7 @@ def load_dota(img_dir, ann_dir=None, metadata_dir=None, nproc=10):
     return contents
 
 
-def _load_dota_single(imgfile, img_dir, ann_dir, metadata_dir):
+def _load_dota_single(imgfile, img_dir, ann_dir, metadata_dir=None):
     """Load DOTA's single image.
 
     Args:
@@ -536,8 +544,9 @@ def _load_dota_single(imgfile, img_dir, ann_dir, metadata_dir):
     txtfile = None if ann_dir is None else osp.join(ann_dir, img_id + '.txt')
     metadata_file = None if metadata_dir is None else osp.join(metadata_dir, img_id + '.txt')
     content = _load_dota_txt(txtfile)
-    meta_content = _load_dota_txt(metadata_file)
-    content['gsd'] = meta_content['gsd']
+    if metadata_file is not None:
+        meta_content = _load_dota_txt(metadata_file)
+        content['gsd'] = meta_content['gsd']
     content.update(
         dict(width=size[0], height=size[1], filename=imgfile, id=img_id))
     return content
@@ -588,6 +597,8 @@ def main():
 
     if args.ann_dirs is None:
         args.ann_dirs = [None for _ in range(len(args.img_dirs))]
+    if args.metadata_dirs is None:
+        args.metadata_dirs = [None for _ in range(len(args.img_dirs))]
     padding_value = args.padding_value[0] \
         if len(args.padding_value) == 1 else args.padding_value
     sizes, gaps = [], []
@@ -629,7 +640,8 @@ def main():
         total=len(infos),
         logger=logger,
         normalize_gsd=args.normalize_gsd,
-        target_gsd=args.target_gsd)
+        target_gsd=args.target_gsd,
+        normalize_without_gsd=args.normalize_without_gsd)
 
     if args.nproc > 1:
         pool = Pool(args.nproc)
