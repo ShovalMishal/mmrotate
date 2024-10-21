@@ -411,13 +411,11 @@ class DOTAv2DatasetMSOOD4(DOTADataset):
     """
     METAINFO = {
         'classes':
-        ('baseball-diamond', 'bridge',
-         'small-vehicle', 'large-vehicle',
+        ('roundabout', 'tennis-court',
          'storage-tank',
          'swimming-pool'),
         # palette is a list of color tuples, which is used for visualization.
-        'palette': [(165, 42, 42), (189, 183, 107), (0, 255, 0), (255, 0, 0),
-                    (138, 43, 226), (255, 128, 0)]
+        'palette': [(165, 42, 42), (189, 183, 107), (0, 255, 0), (255, 0, 0)]
     }
 
 @DATASETS.register_module()
