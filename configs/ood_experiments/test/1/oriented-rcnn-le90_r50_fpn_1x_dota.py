@@ -1,6 +1,6 @@
 dataset_type = 'DOTAv2Dataset'
 runai_run=False
-data_root = '/home/shoval/Documents/Repositories/data/split_ss_dota/' if not runai_run else '/storage/shoval/datasets/split_ss_dota/'
+data_root = '/home/shoval/Documents/Repositories/data/DOTAV2_ss/' if not runai_run else '/storage/shoval/datasets/DOTAV2_ss/'
 ood_labels = [
     'plane', 'baseball-diamond', 'bridge', 'ground-track-field',
     'ship', 'tennis-court', 'basketball-court', 'storage-tank',

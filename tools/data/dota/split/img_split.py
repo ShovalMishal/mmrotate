@@ -366,10 +366,10 @@ def crop_and_save_img(info, windows, window_anns, img_dir, no_padding,
 
         bboxes_num = patch_info['ann']['bboxes'].shape[0]
         target_gsd_str = str(target_gsd).replace(".", "")
-        outdir = os.path.join(anno_dir, patch_info['id'] + "_" + target_gsd_str + '.txt') if normalize_gsd else (
+        outdir = os.path.join(anno_dir, patch_info['id'] + "_" + target_gsd_str + '.txt') if (normalize_gsd or normalize_without_gsd) else (
             os.path.join(anno_dir, patch_info['id'] + '.txt'))
         if bboxes_num != 0:
-            img_path = osp.join(save_dir, patch_info['id'] + "_" + target_gsd_str + img_ext) if normalize_gsd else (
+            img_path = osp.join(save_dir, patch_info['id'] + "_" + target_gsd_str + img_ext) if (normalize_gsd or normalize_without_gsd) else (
                 osp.join(save_dir, patch_info['id'] + img_ext))
             # save image only if there are objects in the image
             cv2.imwrite(img_path, patch)

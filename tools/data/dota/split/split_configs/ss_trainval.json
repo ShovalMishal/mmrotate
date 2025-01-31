@@ -1,13 +1,12 @@
 {
-  "nproc": 10,
+  "nproc": 1,
   "img_dirs": [
-    "data/DOTA/train/images/",
-    "data/DOTA/val/images/"
+    "/home/shoval/Documents/Repositories/data/DOTAV2/test/images/"
   ],
   "ann_dirs": [
-    "data/DOTA/train/labelTxt/",
-    "data/DOTA/val/labelTxt/"
+    "/home/shoval/Documents/Repositories/data/DOTAV2/test/labelTxt/"
   ],
+  "metadata_dirs": ["/home/shoval/Documents/Repositories/data/DOTAV2/test/meta/"],
   "sizes": [
     1024
   ],
@@ -25,6 +24,7 @@
     116,
     124
   ],
-  "save_dir": "data/split_ss_dota/trainval/",
-  "save_ext": ".png"
+  "save_dir": "/home/shoval/Documents/Repositories/data/dotav2_ss_test_wo_gsd/test/",
+  "save_ext": ".png",
+  "normalize_gsd": true
 }

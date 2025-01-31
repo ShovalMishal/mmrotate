@@ -54,7 +54,7 @@ def main(args):
     test_dataloader = Runner.build_dataloader(config.test_dataloader, seed=123456)
     for batch in test_dataloader:
         if any([x in batch['data_samples'][0].gt_instances.labels for x in ood_labels]) and \
-            batch['data_samples'][0].img_id == "P2745__1024__824___824":
+            batch['data_samples'][0].img_id == "P2745__1024__824___824_05":
             t = time.time()
             model.eval()
             with torch.no_grad():

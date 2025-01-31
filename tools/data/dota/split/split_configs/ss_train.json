@@ -14,7 +14,7 @@
     200
   ],
   "rates": [
-    2.0
+    1.0
   ],
   "img_rate_thr": 0.6,
   "iof_thr": 0.7,
@@ -24,9 +24,9 @@
     116,
     124
   ],
-  "save_dir": "/home/shoval/Documents/Repositories/data/gsd_normalized_dataset_rotated/train/",
+  "save_dir": "/home/shoval/Documents/Repositories/data/ss_dotav2/train/",
   "save_ext": ".png",
   "target_gsd": 0.25,
-  "normalize_accord_gsd": true,
+  "normalize_gsd": false,
   "normalize_without_gsd": false,
 }
